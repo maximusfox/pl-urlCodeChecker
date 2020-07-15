@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# use v5.20.0;
+# use v5.26;
 use utf8;
 use strict;
 use warnings;
@@ -20,6 +20,7 @@ mkdir('result') unless (-d 'result');
 my @links = read_file('urls.txt');
 my @coros;
 
+my $results = {};
 for (1..$threads) {
 	push @coros, async {
 		my $ua = LWP::UserAgent->new(
@@ -31,10 +32,22 @@ for (1..$threads) {
 			chomp($link);
 
 			my $result = $ua->get($link);
-			say '['.$result->code.'] '.$link;
-			write_file( 'result/'.$result->code.'.txt', {append => 1}, $link."\n" );
+			say '['.$result->code.'] '.'['.$result->message.'] '.$link;
+			write_file('result/'.$result->code.'.txt', {append => 1}, $link."\n");
+			unless (exists $results->{$result->code}) {
+				$results->{$result->code} = []
+			}
+			push @{$results->{$result->code}}, $link;
 		}
 	};
 }
 
 $_->join for (@coros);
+
+my $report = '';
+for my $k (sort keys %{$results}) {
+	my $log_part = "\nCode: $k\n" . ('-' x 200) . "\n" . join("\n", @{$results->{$k}}) . "\n" . ('-' x 200) . "\n";
+	say $log_part;
+	$report .= $log_part;
+}
+write_file('result/report.txt', {append => 0}, $report );
